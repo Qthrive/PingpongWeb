@@ -6,20 +6,6 @@
 ## 项目概述
 `pingpongUp` 是一个基于飞桨大模型开发的乒乓球运动助手，旨在为乒乓球爱好者提供全方位的运动辅助服务。该项目结合了 AI 对话、图像和视频处理等功能，通过前端和后端的协作，为用户打造一个智能、便捷的运动体验平台。
 
-## 项目结构
-```
-D:\fe_code\pingpongUp
-├── .git
-├── .gitignore
-├── backend
-├── frontend
-├── logo.png
-├── model
-├── README.md
-├── static
-└── todo.md
-```
-
 
 ### 各部分说明
 - **`backend` 文件夹**：项目的后端代码，使用 Flask 框架搭建。包含用户认证、AI 对话、图像和视频处理等功能的实现。
