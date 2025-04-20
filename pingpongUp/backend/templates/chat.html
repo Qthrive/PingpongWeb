@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>智能对话</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <h1>智能对话系统</h1>
+    <div class="chat-container">
+        <div id="chat-history" class="chat-history">
+            <!-- 对话记录会显示在这里 -->
+        </div>
+        <form id="chat-form" method="POST">
+            <input type="text" id="question" name="question" placeholder="请输入您的问题..." required>
+            <button type="submit">发送</button>
+        </form>
+    </div>
+
+    <script>
+        document.getElementById('chat-form').addEventListener('submit', async function(e) {
+            e.preventDefault();
+            
+            const question = document.getElementById('question').value;
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                body: new URLSearchParams({question: question})
+            });
+            
+            const result = await response.json();
+            const chatHistory = document.getElementById('chat-history');
+            
+            if (result.answer) {
+                chatHistory.innerHTML += `
+                    <div class="message user">你: ${question}</div>
+                    <div class="message bot">机器人: ${result.answer}</div>
+                `;
+            } else {
+                chatHistory.innerHTML += `<div class="error">错误: ${result.error}</div>`;
+            }
+            
+            document.getElementById('question').value = '';
+        });
+    </script>
+</body>
+</html>

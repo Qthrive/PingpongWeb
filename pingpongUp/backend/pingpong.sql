@@ -1,0 +1,9 @@
+CREATE DATABASE pingpong_db CHARACTER set utf8mb4 COLLATE utf8mb4_unicode_ci;
+
+use pingpong_db;
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    email VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(200) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);

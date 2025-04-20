@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <style>
+        .container {
+            max-width: 1000px;
+            margin: 2rem auto;
+            text-align: center;
+        }
+        .upload-box {
+            border: 2px dashed #ccc;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+        .result {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 2rem;
+        }
+        .result img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            padding: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>图片预测系统</h1>
+        
+        <div class="upload-box">
+            <input type="file" id="fileInput" accept="image/*">
+            <button onclick="uploadFile()">上传并预测</button>
+        </div> 
+        <div class="upload-box" style="border-color: #8bc34a;">
+            <input type="file" id="videoInput" accept="video/*">
+            <button onclick="uploadVideo()">上传并预测视频</button>
+            <div id="videoProgress" class="alert alert-info" style="display: none;">处理中...</div>
+        </div>        
+        <div class="result" id="resultContainer" style="display:none;">
+            <div>
+                <h3>原图</h3>
+                <img id="originalImg" src="">
+            </div>
+            <div>
+                <h3>处理结果</h3>
+                <img id="processedImg" src="">
+            </div>
+        </div>
+        <div class="result" id="videoResult" style="display:none;">
+            <div>
+                <h3>处理后的视频</h3>
+                <video id="processedVideo" controls style="max-width: 100%;"></video>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function uploadFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择文件');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            fetch('/predict_img', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    document.getElementById('originalImg').src = data.original;
+                    document.getElementById('processedImg').src = data.processed;
+                    document.getElementById('resultContainer').style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('预测过程中发生错误');
+            });
+        }
+        function uploadVideo() {
+            const fileInput = document.getElementById('videoInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('请选择视频文件');
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            // 显示进度提示
+            const progress = document.getElementById('videoProgress');
+            progress.style.display = 'block';
+
+            fetch('/predict_video', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.error) {
+                    alert(data.error);
+                } else {
+                    const videoResult = document.getElementById('videoResult');
+                    document.getElementById('processedVideo').src = data.processed;
+                    videoResult.style.display = 'block';
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('视频处理过程中发生错误');
+            })
+            .finally(() => {
+                progress.style.display = 'none';
+            });
+        }        
+    </script>
+</body>
+</html>

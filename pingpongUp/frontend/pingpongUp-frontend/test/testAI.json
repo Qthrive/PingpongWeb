@@ -1,0 +1,18 @@
+{
+    "version": "1.1.0",
+    "description": "A command-line tool to manage and deploy your dotfiles",
+    "data": {
+        "file1": {
+            "source": "file1.txt",
+            "destination": "C:\\path\\to\\file1.txt"
+        },
+        "file2": {
+            "source": "file2.txt",
+            "destination": "C:\\path\\to\\file2.txt"
+        },
+        "file3": {
+            "source": "file3.txt",
+            "destination": "C:\\path\\to\\file3.txt"
+        }
+    }
+}

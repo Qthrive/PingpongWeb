@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>注册</title>
+</head>
+<body>
+    <h2>用户注册</h2>
+    <form method="POST">
+        <input type="text" name="username" placeholder="用户名" required>
+        <input type="email" name="email" placeholder="邮箱" required>
+        <input type="password" name="password" placeholder="密码" required>
+        <button type="submit">注册</button>
+    </form>
+    <p>已有账号？<a href="{{ url_for('show_login') }}">登录</a></p>
+</body>
+</html>

@@ -1,0 +1,28 @@
+<!-- templates/base.html -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PingPong系统</title>
+</head>
+<body>
+    <nav>
+        {% if 'user_id' in session %}
+            <a href="{{ url_for('dashboard') }}">处理页面</a>
+            <a href="{{ url_for('logout') }}">退出</a>
+        {% else %}
+            <a href="{{ url_for('show_login') }}">登录</a>
+            <a href="{{ url_for('register') }}">注册</a>
+        {% endif %}
+    </nav>
+    <!-- {% with messages = get_flashed_messages() %}
+        {% if messages %}
+            <div class="alert">
+                {% for message in messages %}
+                    {{ message }}
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %} -->
+    {% block content %}{% endblock %}
+</body>
+</html>
