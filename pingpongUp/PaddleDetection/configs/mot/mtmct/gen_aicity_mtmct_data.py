@@ -45,8 +45,10 @@ def transSeq(seqs_path, new_root):
         new_roi_path = f"{new_root}/{Seq}/images/{Camera}"
         os.system(f"cp {roi_path} {new_roi_path}")
 
+        # video2frames(f"{vdoList}/vdo.avi",
+        #              f"{new_root}/{Scd eq}/images/{Camera}/img1")
         video2frames(f"{vdoList}/vdo.avi",
-                     f"{new_root}/{Scd eq}/images/{Camera}/img1")
+                     f"{new_root}/{Seq}/images/{Camera}/img1")
 
 
 if __name__ == "__main__":
