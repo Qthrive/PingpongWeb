@@ -4,6 +4,7 @@ import subprocess
 import uuid
 import requests
 import json 
+import shutil
 from flask_mysqldb import MySQL
 from werkzeug.utils import secure_filename
 from functools import wraps
@@ -164,145 +165,156 @@ def chat():
             
     return render_template('chat.html')
 
-
 # 图片处理路由
 @pingpong.route('/page/transformer/image', methods=['POST'])
 def predict_img():
-    
-    os.makedirs(pingpong.config['UPLOAD_FOLDER'], exist_ok=True)
-    os.makedirs(PROCESSED_FOLDER, exist_ok=True)
-
-    # 检查是否有文件上传
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file type'}), 400
-    
-    # 保存上传文件
-    filename = secure_filename(file.filename)
-    input_path = os.path.join(pingpong.config['UPLOAD_FOLDER'], filename)
-    file.save(input_path)
-    
+    temp_dir = None  # 用于存储临时目录路径
     try:
-        # 第一阶段检测
-        det_output_dir = os.path.join(PROCESSED_FOLDER, 'detection')
+        # 确保上传和处理目录存在
+        os.makedirs(pingpong.config['UPLOAD_FOLDER'], exist_ok=True)
+        os.makedirs(PROCESSED_FOLDER, exist_ok=True)
+
+        # 检查文件上传
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file part'}), 400
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No selected file'}), 400
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type'}), 400
+
+        # 保存上传文件
+        filename = secure_filename(file.filename)
+        input_path = os.path.join(pingpong.config['UPLOAD_FOLDER'], filename)
+        file.save(input_path)
+
+        # 创建唯一临时目录
+        temp_dir = os.path.join(PROCESSED_FOLDER, 'temp', str(uuid.uuid4()))
+        os.makedirs(temp_dir, exist_ok=True)
+        det_output_dir = os.path.join(temp_dir, 'detection')
         os.makedirs(det_output_dir, exist_ok=True)
+        kp_output_dir = os.path.join(PROCESSED_FOLDER, 'keypoint')
+        os.makedirs(kp_output_dir, exist_ok=True)
+
+        # 第一阶段检测（结果存入临时目录）
         det_cmd = [
-            'python', r'../PaddleDetection/tools/infer.py',
-            '-c', r'../PaddleDetection/configs/picodet/ppq.yml',
+            'python', '../PaddleDetection/tools/infer.py',
+            '-c', '../PaddleDetection/configs/picodet/ppq.yml',
             '--infer_img', input_path,
             '-o', 'weights=../PaddleDetection/output/ppq/best_model.pdopt',
             '--output_dir', det_output_dir
         ]
         subprocess.run(det_cmd, check=True)
-        
-        # 第二阶段关键点检测
-        kp_output_dir = os.path.join(PROCESSED_FOLDER, 'keypoint')
-        os.makedirs(kp_output_dir, exist_ok=True)
+
+        # 第二阶段关键点检测（结果存入最终目录）
         kp_cmd = [
-            'python', r'../PaddleDetection/deploy/python/det_keypoint_unite_infer.py',
-            '--det_model_dir', r'../model/models/detection/picodet_v2_s_320_pedestrian',
-            '--keypoint_model_dir', r'../model/models/keypoint/tinypose_128x96',
+            'python', '../PaddleDetection/deploy/python/det_keypoint_unite_infer.py',
+            '--det_model_dir', '../model/models/detection/picodet_v2_s_320_pedestrian',
+            '--keypoint_model_dir', '../model/models/keypoint/tinypose_128x96',
             '--image_dir', det_output_dir,
             '--device', 'CPU',
             '--output_dir', kp_output_dir
         ]
         subprocess.run(kp_cmd, check=True)
-        
-        
+
+        # 构造返回的URL
+        processed_filename = filename.replace(".png", "_vis_vis.jpg")
+        processed_path = os.path.join(kp_output_dir, processed_filename)
+        if not os.path.exists(processed_path):
+            raise FileNotFoundError("Processed file not found")
+
         return jsonify({
             'original': url_for('static', filename=f'uploads/{filename}'),
-            'processed': url_for('static', filename=f'processed/keypoint/{filename.replace(r".png",r"_vis_vis.jpg")}'),
+            'processed': url_for('static', filename=f'processed/keypoint/{processed_filename}'),
         })
-        
+
     except subprocess.CalledProcessError as e:
-        return jsonify({'error': f'Prediction failed: {str(e)}'}), 500
+        return jsonify({'error': f'Prediction failed: {e.stderr.decode()}' if e.stderr else str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': f'An error occurred: {str(e)}'}), 500
     finally:
-        # 清理临时文件（可选）
-        pass
+        # 清理临时目录
+        if temp_dir and os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 
 # 视频处理路由
 @pingpong.route('/page/transformer/video', methods=['POST'])
 def predict_video():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
-    
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
-    
-    if not allowed_file(file.filename):
-        return jsonify({'error': 'Invalid file type'}), 400
-    
-    # 生成唯一标识符
     task_id = str(uuid.uuid4())
-    video_dir = os.path.join(PROCESSED_FOLDER, 'video', task_id)
-    os.makedirs(video_dir, exist_ok=True)
-    # 保存原始视频
-    filename = secure_filename(file.filename)
-    input_path = os.path.join(video_dir, filename)
-    file.save(input_path)
+    task_dir = os.path.join(PROCESSED_FOLDER, 'video', task_id)
+    temp_dir = os.path.join(task_dir, 'temp')  # 临时文件目录
+    os.makedirs(task_dir, exist_ok=True)
     
     try:
-        # 1. 拆分视频为帧
-        frame_dir = os.path.join(video_dir, 'frames')
+        # 保存原始视频到任务主目录
+        filename = secure_filename(request.files['file'].filename)
+        original_path = os.path.join(task_dir, filename)
+        request.files['file'].save(original_path)
+        
+        # 创建临时目录结构
+        os.makedirs(temp_dir, exist_ok=True)
+        frame_dir = os.path.join(temp_dir, 'frames')
+        det_dir = os.path.join(temp_dir, 'detected')
+        kp_dir = os.path.join(temp_dir, 'keypoints')
         os.makedirs(frame_dir, exist_ok=True)
+        os.makedirs(det_dir, exist_ok=True)
+        os.makedirs(kp_dir, exist_ok=True)
+
+        # 1. 拆分视频为帧（临时目录）
         split_cmd = [
-            'ffmpeg', '-i', input_path, 
-            '-vf', 'fps=30',  # 保持与原视频相同帧率
+            'ffmpeg', '-i', original_path, 
+            '-vf', 'fps=30',
             os.path.join(frame_dir, 'frame_%05d.png')
         ]
         subprocess.run(split_cmd, check=True)
-        
-        # 2. 目标检测处理
-        det_dir = os.path.join(video_dir, 'detected')
-        os.makedirs(det_dir, exist_ok=True)
+
+        # 2. 目标检测（临时目录）
         det_cmd = [
-            'python', r'../PaddleDetection/tools/infer.py',
-            '-c', r'../PaddleDetection/configs/picodet/ppq.yml',
+            'python', '../PaddleDetection/tools/infer.py',
+            '-c', '../PaddleDetection/configs/picodet/ppq.yml',
             '--infer_dir', frame_dir,
             '-o', 'weights=../PaddleDetection/output/ppq/best_model.pdopt',
             '--output_dir', det_dir
         ]
         subprocess.run(det_cmd, check=True)
-        
-        # 3. 关键点检测处理
-        kp_dir = os.path.join(video_dir, 'keypoints')
-        os.makedirs(kp_dir, exist_ok=True)
+
+        # 3. 关键点检测（临时目录）
         kp_cmd = [
-            'python', r'../PaddleDetection/deploy/python/det_keypoint_unite_infer.py',
-            '--det_model_dir', r'../model/models/detection/picodet_v2_s_320_pedestrian',
-            '--keypoint_model_dir', r'../model/models/keypoint/tinypose_128x96',
+            'python', '../PaddleDetection/deploy/python/det_keypoint_unite_infer.py',
+            '--det_model_dir', '../model/models/detection/picodet_v2_s_320_pedestrian',
+            '--keypoint_model_dir', '../model/models/keypoint/tinypose_128x96',
             '--image_dir', det_dir,
             '--device', 'CPU',
             '--output_dir', kp_dir
         ]
         subprocess.run(kp_cmd, check=True)
+
+        # 4. 合成最终视频（保存到任务主目录）
+        processed_filename = f'processed_{filename}'
+        output_video = os.path.join(task_dir, processed_filename)
         
-        # 4. 合成视频
-        output_video = os.path.join(video_dir, 'processed_' + filename)
         synthesize_cmd = [
-            'ffmpeg', '-framerate', '30',  # 与拆分时帧率一致
+            'ffmpeg', '-framerate', '30',
             '-i', os.path.join(kp_dir, 'frame_%05d_vis_vis.jpg'),
             '-c:v', 'libx264', '-pix_fmt', 'yuv420p',
             output_video
         ]
         subprocess.run(synthesize_cmd, check=True)
-        
+
         return jsonify({
             'original': url_for('static', filename=f'processed/video/{task_id}/{filename}'),
-            'processed': url_for('static', filename=f'processed/video/{task_id}/processed_{filename}')
+            'processed': url_for('static', filename=f'processed/video/{task_id}/{processed_filename}'),
         })
-        
+
     except subprocess.CalledProcessError as e:
-        return jsonify({'error': f'处理失败: {str(e)}'}), 500
+        error_msg = e.stderr.decode() if e.stderr else str(e)
+        return jsonify({'error': f'处理失败: {error_msg}'}), 500
+    except Exception as e:
+        return jsonify({'error': f'系统错误: {str(e)}'}), 500
+    finally:
+        # 清理临时文件（不影响主目录中的原始/结果文件）
+        if os.path.exists(temp_dir):
+            shutil.rmtree(temp_dir)
 
 if __name__ == "__main__":
     pingpong.run(debug=True)
