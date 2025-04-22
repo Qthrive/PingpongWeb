@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="./logo.png" alt="logo" style="width: 100px; /* 可根据需要调整图标宽度 */">
+  <img src="./pingpongUp/logo.png" alt="logo" style="width: 100px; /* 可根据需要调整图标宽度 */">
   <h3>pingpongUp - 基于百度飞桨/千帆大模型的乒乓球运动助手</h3>
 </div>
 
